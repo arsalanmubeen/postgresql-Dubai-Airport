@@ -1,0 +1,102 @@
+CREATE TEMP TABLE tbl_CHK AS
+select * from(
+SELECT *,case when 
+	(select max(recovered) from table19covid where 
+					 country_region = A.country_region and 
+					DATE = A.DATE) >
+					(select max(recovered) from table19covid where 
+					 country_region = A.country_region and 
+					DATE = A.DATE-1) then 'true' else 'false' end chk,
+	(select max(recovered) from table19covid where 
+					 country_region = A.country_region and 
+					DATE = A.DATE) -
+					(select max(recovered) from table19covid where 
+					 country_region = A.country_region and 
+					DATE = A.DATE-1) deff
+	
+from
+(SELECT country_region,recovered,DATE FROM public.table19covid
+WHERE DATE BETWEEN (SELECT MAX(DATE)-6 FROM table19covid) AND (SELECT MAX(DATE) FROM table19covid)
+AND recovered IS NOT NULL ) A )AA
+
+CREATE TEMP TABLE my_country AS
+select country_region from(
+select country_region,deff from tbl_CHK
+where country_region not in (
+select country_region from tbl_CHK
+where chk = 'true'
+group by country_region)
+order by 2 )a
+limit 10
+
+select * from my_country
+
+select *,(select (max(confirmed)+max(recovered)+max(deaths)) from public.table19covid where 
+                                 country_region =A.country_region and 
+								 DATE = A.peak_date-1) gross_adds
+from (
+select country_region,max(confirmed) peak_active ,(select max(DATE) from public.table19covid where country_region =A.country_region 
+														   and confirmed =max(A.confirmed)) as peak_date 
+-- i observed from the data that it was already taking SUM with a previous date.
+-- thats why i use MAX not sum
+,(max(confirmed)+max(recovered)+max(deaths)) as cases 														   
+,max(confirmed) as active
+,max(recovered) as recovered
+,max(deaths) as deaths
+from public.table19covid A 
+where country_region in ( select * from my_country )
+group by country_region )A
+
+
+
+select country_region,DATE,(sum(confirmed)+sum(recovered)+sum(deaths)) as numberofTotalReportedCases
+,sum(confirmed) as active_cases 
+,sum(recovered)recovered
+,sum(deaths) deaths
+,(select (sum(confirmed)+sum(recovered)+sum(deaths)) from public.table19covid where 
+                                 country_region =A.country_region and 
+								 DATE = A.DATE-1) from  public.table19covid A
+where country_region in ( select * from my_country )
+group by country_region,DATE
+order by 1,2
+
+
+
+
+
+select max(confirmedCase),date from(
+select sum(confirmed) confirmedCase ,date, country_region from public.table19covid
+where country_region in ( select * from my_country )
+group by  date,country_region 
+--group by date
+order by 1 desc
+
+
+
+select * from table19covid 
+	where country_region = 'Saudi Arabia' 
+	--and date = '2021-08-06'
+--	group by date 
+	order by 1 desc
+	
+	select *  from table19covid
+	where country_region = 'Finland' 
+	and date = '2021-08-07'
+order by date desc
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
